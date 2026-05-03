@@ -1,7 +1,7 @@
 # prereviewBot
 
 42Tokyo の課題リポジトリを Discord 経由で自動レビューする bot です。
-`/prereview <project> <repository> <bonus>` を発行すると、指定された GitHub リポジトリに対して norminette / Makefile / コンパイルフラグ / 禁止関数 / スモークテストを走らせ、**失敗した項目だけ** を依頼者にのみ見える ephemeral メッセージとして返します。
+`/prereview <project> <repository> <bonus>` を発行すると、指定された GitHub リポジトリに対して norminette / Makefile / コンパイルフラグ / スモークテストを走らせ、**失敗した項目だけ** を依頼者にのみ見える ephemeral メッセージとして返します。
 
 - 担当: koyon
 - 言語: Python 3.12 / discord.py 2.4
@@ -63,7 +63,6 @@ make down    # 停止
 | make all/clean/fclean/re | 各ターゲットを順に実行し、終了コードを検証                                |
 | make bonus          | `bonus=True` のときのみ追加で実行                                             |
 | compile flags       | 全 `*.c` を `gcc -Wall -Wextra -Werror -c` でコンパイルできるか確認           |
-| forbidden functions | `nm libft.a` の undefined シンボルが許可リスト (`malloc`, `free`, `write`) に収まっているか |
 | smoke tester        | `libft.h` を include した小さなテストハーネスを `libft.a` にリンクし実行     |
 
 > スモークテストは `ft_strlen` / `ft_atoi` / `ft_isalpha` / `ft_strdup` の最低限の動作確認のみです。Tripouille/libftTester 等の本格的なテスターに置き換えたいときは `src/review/checks/tester.py` の `smoke_tester_check` を差し替えるか、別チェックとして並列実装してください。
@@ -73,11 +72,10 @@ make down    # 停止
 ## 新しい課題を追加する手順 (例: ft_printf)
 
 1. `src/review/projects/ft_printf.py` を作成し、`ProjectSpec` を定義する。
-   - `allowed_external_symbols` には課題で許可された関数を列挙
    - `expected_artifacts_mandatory` には `libftprintf.a` などビルド成果物
    - `check_builder` に課題固有の検査ロジックを注入
 2. `src/review/projects/registry.py` の末尾で `register(FT_PRINTF)` を呼ぶ。
-3. 既存の `norminette_check` / `make_targets_check` / `compile_flags_check` / `forbidden_functions_check` はそのまま再利用可能。テスターだけは課題ごとに smoke C を書き直す必要があります (`src/review/checks/tester.py` を参考に)。
+3. 既存の `norminette_check` / `make_targets_check` / `compile_flags_check` はそのまま再利用可能。テスターだけは課題ごとに smoke C を書き直す必要があります (`src/review/checks/tester.py` を参考に)。
 4. `make restart` で bot を再起動すると `/prereview project:` の選択肢に自動的に出現します。
 
 ---
@@ -113,7 +111,6 @@ prereviewBot/
         │   ├── norminette.py
         │   ├── make_targets.py
         │   ├── compile_flags.py
-        │   ├── forbidden_functions.py
         │   └── tester.py
         └── projects/
             ├── base.py            # ProjectSpec

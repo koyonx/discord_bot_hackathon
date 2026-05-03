@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from review.checks.compile_flags import compile_flags_check
-from review.checks.forbidden_functions import forbidden_functions_check
 from review.checks.make_targets import make_targets_check
 from review.checks.norminette import norminette_check
 from review.checks.tester import smoke_tester_check
@@ -13,7 +12,6 @@ def _build_libft_checks(project: ProjectSpec, bonus: bool):
         norminette_check(project, bonus=bonus),
         make_targets_check(project, bonus=bonus),
         compile_flags_check(project, bonus=bonus),
-        forbidden_functions_check(project, bonus=bonus),
         smoke_tester_check(project, bonus=bonus),
     ]
 
@@ -21,7 +19,6 @@ def _build_libft_checks(project: ProjectSpec, bonus: bool):
 LIBFT = ProjectSpec(
     name="libft",
     description="42Tokyo libft — re-implement a subset of libc.",
-    allowed_external_symbols=frozenset({"malloc", "free", "write"}),
     required_make_targets=("all", "clean", "fclean", "re"),
     bonus_make_target="bonus",
     expected_artifacts_mandatory=("libft.a",),

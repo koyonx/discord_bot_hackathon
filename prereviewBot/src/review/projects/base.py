@@ -20,8 +20,6 @@ class ProjectSpec:
 
     name: str
     description: str
-    # External libc functions that the project's source is allowed to depend on.
-    allowed_external_symbols: frozenset[str]
     # Make targets that must exist and succeed for the mandatory part.
     required_make_targets: tuple[str, ...]
     # Make target for the bonus part. None if the project has no bonus.
