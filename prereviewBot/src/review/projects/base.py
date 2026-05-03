@@ -32,6 +32,25 @@ class ProjectSpec:
     norminette_targets_bonus: tuple[str, ...]
     # Compiler flags expected to compile cleanly with.
     required_compile_flags: tuple[str, ...] = ("-Wall", "-Wextra", "-Werror")
+    # ft_* functions that must be defined in the produced archive.
+    required_mandatory_functions: tuple[str, ...] = ()
+    required_bonus_functions: tuple[str, ...] = ()
+    # External libc symbols the library is allowed to reference. Anything
+    # outside this set (and outside compiler/linker internals) is forbidden.
+    allowed_external_libc: frozenset[str] = frozenset()
+    # Identifiers that must NOT appear in the project's public header(s).
+    forbidden_header_keywords: tuple[str, ...] = ()
+    # Substrings that must NOT appear in the Makefile (after stripping comments).
+    forbidden_makefile_substrings: tuple[str, ...] = ()
+    # Substrings that MUST appear in the Makefile (after stripping comments).
+    required_makefile_substrings: tuple[str, ...] = ()
+    # Compiler binaries that must NOT appear as command invocations in the Makefile.
+    forbidden_makefile_compilers: tuple[str, ...] = ()
+    # Typedef name expected in the public header when bonus is enabled (e.g. "t_list").
+    bonus_typedef_name: str | None = None
+    # README rules.
+    readme_required_sections: tuple[str, ...] = ()
+    readme_first_line_pattern: str | None = None
     # Builder used by Runner to materialise the list of checks for this project.
     check_builder: "CheckBuilder | None" = field(default=None)
 
