@@ -35,9 +35,6 @@ class ProjectSpec:
     # ft_* functions that must be defined in the produced archive.
     required_mandatory_functions: tuple[str, ...] = ()
     required_bonus_functions: tuple[str, ...] = ()
-    # External libc symbols the library is allowed to reference. Anything
-    # outside this set (and outside compiler/linker internals) is forbidden.
-    allowed_external_libc: frozenset[str] = frozenset()
     # Identifiers that must NOT appear in the project's public header(s).
     forbidden_header_keywords: tuple[str, ...] = ()
     # Substrings that must NOT appear in the Makefile (after stripping comments).

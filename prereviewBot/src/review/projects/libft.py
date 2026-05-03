@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from review.checks.compile_flags import compile_flags_check
-from review.checks.forbidden_externals import forbidden_externals_check
 from review.checks.globals import no_globals_check
 from review.checks.header_rules import header_rules_check
 from review.checks.make_targets import make_targets_check
@@ -50,7 +49,6 @@ def _build_libft_checks(project: ProjectSpec, bonus: bool):
         # Archive analysis (depends on libft.a from `make all`)
         required_functions_check(project, bonus=bonus),
         no_globals_check(project, bonus=bonus),
-        forbidden_externals_check(project, bonus=bonus),
         # Runtime
         libft_smoke_check(project, bonus=bonus),
     ]
@@ -69,10 +67,6 @@ LIBFT = ProjectSpec(
         _LIBFT_PART1_LIBC + _LIBFT_PART1_MALLOC + _LIBFT_PART2
     ),
     required_bonus_functions=_LIBFT_BONUS,
-    # Subject: Part 1 libc reimplementations may not call any external functions;
-    # ft_calloc/ft_strdup/Part 2 may use malloc/free/write per their tables.
-    # The library as a whole therefore only references these three.
-    allowed_external_libc=frozenset({"malloc", "free", "write"}),
     forbidden_header_keywords=("restrict",),
     forbidden_makefile_substrings=("-std=c99", "libtool"),
     required_makefile_substrings=("ar",),

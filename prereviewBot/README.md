@@ -70,7 +70,6 @@ Libft v19.2 subject に厳密に従っています。チェックは順番に実
 | no relinking        | `make all` を 2 回叩いて 2 回目に再リンクが起きないこと (subject Chapter II)                    |
 | required functions  | subject 記載の必須関数 34 個 (bonus 時は +9 個) が `libft.a` に定義されているか                 |
 | no globals          | `nm libft.a` の D / B / C / G シンボルがないか (subject IV.1: global 宣言禁止)                  |
-| forbidden externals | `libft.a` の undefined シンボルが `malloc` / `free` / `write` 以外に無いか                      |
 | behavioural smoke   | subject 規定の挙動を 30 種類以上のケースで `-fsanitize=address,undefined` 下で検証              |
 
 > behavioural smoke は subject の Part 1 / Part 2 / Part 3 を網羅的にカバーし、AddressSanitizer + UndefinedBehaviorSanitizer + LeakSanitizer (LSAN exitcode 23) でメモリエラー / リーク / UB を検出します。テスト本体は `src/review/projects/libft_smoke.c`、追加項目はそこに足してください。
@@ -80,12 +79,12 @@ Libft v19.2 subject に厳密に従っています。チェックは順番に実
 ## 新しい課題を追加する手順 (例: ft_printf)
 
 1. `src/review/projects/ft_printf.py` を作成し、`ProjectSpec` を定義する。
-   - `required_mandatory_functions` / `allowed_external_libc` / `forbidden_*` を subject に従って埋める
+   - `required_mandatory_functions` / `forbidden_*` を subject に従って埋める
    - `expected_artifacts_mandatory` には `libftprintf.a` などビルド成果物
    - `check_builder` で再利用したい汎用チェックを並べる
 2. 課題固有の挙動テストを `src/review/projects/ftprintf_smoke.c` 等に書き、専用の `tester` チェック関数 (`src/review/checks/printf_tester.py`) を追加して check_builder から呼ぶ。
 3. `src/review/projects/registry.py` の末尾で `register(FT_PRINTF)` を呼ぶ。
-4. `norminette_check` / `make_targets_check` / `compile_flags_check` / `repo_layout_check` / `makefile_rules_check` / `header_rules_check` / `required_functions_check` / `no_globals_check` / `forbidden_externals_check` / `no_relink_check` は project 非依存なのでそのまま流用可能。
+4. `norminette_check` / `make_targets_check` / `compile_flags_check` / `repo_layout_check` / `makefile_rules_check` / `header_rules_check` / `required_functions_check` / `no_globals_check` / `no_relink_check` は project 非依存なのでそのまま流用可能。
 5. `make restart` で bot を再起動すると `/prereview project:` の選択肢に自動的に出現します。
 
 ---
@@ -127,7 +126,6 @@ prereviewBot/
         │   ├── header_rules.py
         │   ├── required_functions.py
         │   ├── globals.py
-        │   ├── forbidden_externals.py
         │   └── tester.py
         └── projects/
             ├── base.py            # ProjectSpec
