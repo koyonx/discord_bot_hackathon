@@ -84,7 +84,7 @@ make down    # 停止
 
 - `make all` / `gcc` の実行は、レビュー対象リポジトリに含まれるコードを **意図的に走らせる** 操作です。bot は Docker コンテナ内で `mem_limit=1g`, `pids_limit=256`, ネットワーク制限なし、`USER bot` (非 root) で動かしていますが、悪意ある相手からの URL を投げ込まれる前提のサービスとしては運用しないでください。
 - 受け付けるリポジトリ URL は `https://github.com/...` のみに制限しています (`src/review/workspace.py`)。SSH/その他スキームは拒否されます。
-- 一時ディレクトリは `tmpfs` 上 (`/var/tmp/prereview`, 512MB) に展開し、レビュー終了時に削除されます。
+- 一時ディレクトリは `/var/tmp/prereview/prereview-*` 配下に展開し、レビュー終了時 (および異常終了時) に削除されます。コンテナ自体を破棄すれば残骸も消えます。
 
 ---
 

@@ -9,8 +9,6 @@ services:
     init: true
     mem_limit: 1g
     pids_limit: 256
-    tmpfs:
-      - /var/tmp/prereview:rw,size=512m,mode=1777
     logging:
       driver: json-file
       options:
