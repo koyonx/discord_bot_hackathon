@@ -21,7 +21,7 @@ discord_bot_hackathon/
     └── src/                   # 実装本体(言語に応じて app/, cmd/ などでも可)
 ```
 
-`<bot-name>` は kebab-case を推奨します(例: `welcome-bot`, `reminder-bot`)。
+`<bot-name>` は camelCase を推奨します(例: `welcomeBot`, `reminderBot`)。
 
 ---
 
