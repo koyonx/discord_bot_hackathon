@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  manageMusic:
+    build: .
+    env_file: .env
+    environment:
+      - DISCORD_TOKEN
+      - COMMAND_PREFIX
+    restart: unless-stopped
