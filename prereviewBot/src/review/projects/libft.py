@@ -3,6 +3,7 @@ from __future__ import annotations
 from review.checks.compile_flags import compile_flags_check
 from review.checks.globals import no_globals_check
 from review.checks.header_rules import header_rules_check
+from review.checks.leaks import memory_leaks_check
 from review.checks.make_targets import make_targets_check
 from review.checks.makefile_rules import makefile_rules_check
 from review.checks.no_relink import no_relink_check
@@ -51,6 +52,7 @@ def _build_libft_checks(project: ProjectSpec, bonus: bool):
         no_globals_check(project, bonus=bonus),
         # Runtime
         libft_smoke_check(project, bonus=bonus),
+        memory_leaks_check(project, bonus=bonus),
     ]
 
 

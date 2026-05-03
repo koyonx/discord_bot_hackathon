@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         make \
         git \
         binutils \
+        valgrind \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

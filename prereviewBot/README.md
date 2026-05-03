@@ -71,6 +71,7 @@ Libft v19.2 subject に厳密に従っています。チェックは順番に実
 | required functions  | subject 記載の必須関数 34 個 (bonus 時は +9 個) が `libft.a` に定義されているか                 |
 | no globals          | `nm libft.a` の D / B / C / G シンボルがないか (subject IV.1: global 宣言禁止)                  |
 | behavioural smoke   | subject 規定の挙動を 30 種類以上のケースで `-fsanitize=address,undefined` 下で検証              |
+| memory leaks        | サニタイザを切ったバイナリを `valgrind --leak-check=full` で実行 (subject Chapter II)           |
 
 > behavioural smoke は subject の Part 1 / Part 2 / Part 3 を網羅的にカバーし、AddressSanitizer + UndefinedBehaviorSanitizer + LeakSanitizer (LSAN exitcode 23) でメモリエラー / リーク / UB を検出します。テスト本体は `src/review/projects/libft_smoke.c`、追加項目はそこに足してください。
 
@@ -126,6 +127,7 @@ prereviewBot/
         │   ├── header_rules.py
         │   ├── required_functions.py
         │   ├── globals.py
+        │   ├── leaks.py
         │   └── tester.py
         └── projects/
             ├── base.py            # ProjectSpec

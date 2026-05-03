@@ -8,10 +8,11 @@ from review.projects.base import ProjectSpec
 _SMOKE_SOURCE = Path(__file__).parents[1] / "projects" / "libft_smoke.c"
 
 # ASAN + UBSAN environment for deterministic output and per-error halts.
+# Leak detection is intentionally disabled here — leaks are reported by the
+# dedicated valgrind-based `memory_leaks_check` to keep responsibilities clean.
 _SANITIZER_ENV = {
-    "ASAN_OPTIONS": "abort_on_error=0:halt_on_error=1:detect_leaks=1:strict_string_checks=1",
+    "ASAN_OPTIONS": "abort_on_error=0:halt_on_error=1:detect_leaks=0:strict_string_checks=1",
     "UBSAN_OPTIONS": "abort_on_error=0:halt_on_error=1:print_stacktrace=1",
-    "LSAN_OPTIONS": "exitcode=23",
 }
 
 
@@ -97,8 +98,6 @@ def libft_smoke_check(project: ProjectSpec, *, bonus: bool) -> Check:
         if not passed:
             if exec_run.timed_out:
                 summary = "スモークテストがタイムアウトしました (無限ループ等の疑い)"
-            elif exec_run.returncode == 23:
-                summary = "メモリリークが検出されました (LSAN exitcode=23)"
             elif exec_run.returncode == 1:
                 summary = "1 つ以上の関数が subject 規定の挙動と異なります (詳細は出力参照)"
             else:
