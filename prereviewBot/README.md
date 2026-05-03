@@ -70,7 +70,7 @@ Libft v19.2 subject に厳密に従っています。チェックは順番に実
 | no relinking        | `make all` を 2 回叩いて 2 回目に再リンクが起きないこと (subject Chapter II)                    |
 | required functions  | subject 記載の必須関数 34 個 (bonus 時は +9 個) が `libft.a` に定義されているか                 |
 | no globals          | `nm libft.a` の D / B / C / G シンボルがないか (subject IV.1: global 宣言禁止)                  |
-| behavioural smoke   | subject 規定の挙動を 30 種類以上のケースで `-fsanitize=address,undefined` 下で検証              |
+| behavioural smoke   | francinette/fsoares 相当の厳しさで全関数を検証 (38 テスト関数 / 数百ケース)。ctype/case 関数は 0–255+EOF 全域で libc と比較。memset/bzero/memcpy/memmove/strlcpy/strlcat はカナリア (0xA5) で out-of-bounds 書き込みを検出。`-fsanitize=address,undefined` 下で実行 |
 | memory leaks        | サニタイザを切ったバイナリを `valgrind --leak-check=full` で実行 (subject Chapter II)           |
 
 > behavioural smoke は subject の Part 1 / Part 2 / Part 3 を網羅的にカバーし、AddressSanitizer + UndefinedBehaviorSanitizer + LeakSanitizer (LSAN exitcode 23) でメモリエラー / リーク / UB を検出します。テスト本体は `src/review/projects/libft_smoke.c`、追加項目はそこに足してください。
