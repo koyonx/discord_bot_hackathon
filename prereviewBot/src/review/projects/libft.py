@@ -8,7 +8,6 @@ from review.checks.make_targets import make_targets_check
 from review.checks.makefile_rules import makefile_rules_check
 from review.checks.no_relink import no_relink_check
 from review.checks.norminette import norminette_check
-from review.checks.readme_required import readme_required_check
 from review.checks.repo_layout import repo_layout_check
 from review.checks.required_functions import required_functions_check
 from review.checks.tester import libft_smoke_check
@@ -39,7 +38,6 @@ def _build_libft_checks(project: ProjectSpec, bonus: bool):
     `make all` fails the user still sees actionable structural feedback."""
     return [
         # Static / textual (run regardless of build success)
-        readme_required_check(project, bonus=bonus),
         repo_layout_check(project, bonus=bonus),
         makefile_rules_check(project, bonus=bonus),
         header_rules_check(project, bonus=bonus),
@@ -80,10 +78,5 @@ LIBFT = ProjectSpec(
     required_makefile_substrings=("ar",),
     forbidden_makefile_compilers=("gcc", "clang", "g++", "c++"),
     bonus_typedef_name="t_list",
-    readme_required_sections=("Description", "Instructions", "Resources"),
-    readme_first_line_pattern=(
-        r"\s*\*This project has been created as part of the 42 curriculum by "
-        r"<?[\w.,\-\s\[\]<>]+\*"
-    ),
     check_builder=_build_libft_checks,
 )

@@ -61,7 +61,6 @@ Libft v19.2 subject に厳密に従っています。チェックは順番に実
 
 | カテゴリ            | 項目                                                                                            |
 | ------------------- | ----------------------------------------------------------------------------------------------- |
-| README              | 1 行目に subject 規定の italic クレジット行 / `Description` / `Instructions` / `Resources` 見出し |
 | repo layout         | `.c` / `.h` がリポジトリ root に配置されているか (subject Chapter VI)                          |
 | Makefile rules      | `cc` を使うか / `-std=c99` や `libtool` が含まれていないか / `ar` を使うか / 必須ルールが揃うか  |
 | header rules        | `restrict` キーワードが入っていないか / bonus 時に `t_list` typedef が定義されているか          |
@@ -81,12 +80,12 @@ Libft v19.2 subject に厳密に従っています。チェックは順番に実
 ## 新しい課題を追加する手順 (例: ft_printf)
 
 1. `src/review/projects/ft_printf.py` を作成し、`ProjectSpec` を定義する。
-   - `required_mandatory_functions` / `allowed_external_libc` / `forbidden_*` / `readme_*` を subject に従って埋める
+   - `required_mandatory_functions` / `allowed_external_libc` / `forbidden_*` を subject に従って埋める
    - `expected_artifacts_mandatory` には `libftprintf.a` などビルド成果物
    - `check_builder` で再利用したい汎用チェックを並べる
 2. 課題固有の挙動テストを `src/review/projects/ftprintf_smoke.c` 等に書き、専用の `tester` チェック関数 (`src/review/checks/printf_tester.py`) を追加して check_builder から呼ぶ。
 3. `src/review/projects/registry.py` の末尾で `register(FT_PRINTF)` を呼ぶ。
-4. `norminette_check` / `make_targets_check` / `compile_flags_check` / `repo_layout_check` / `makefile_rules_check` / `header_rules_check` / `readme_required_check` / `required_functions_check` / `no_globals_check` / `forbidden_externals_check` / `no_relink_check` は project 非依存なのでそのまま流用可能。
+4. `norminette_check` / `make_targets_check` / `compile_flags_check` / `repo_layout_check` / `makefile_rules_check` / `header_rules_check` / `required_functions_check` / `no_globals_check` / `forbidden_externals_check` / `no_relink_check` は project 非依存なのでそのまま流用可能。
 5. `make restart` で bot を再起動すると `/prereview project:` の選択肢に自動的に出現します。
 
 ---
@@ -126,7 +125,6 @@ prereviewBot/
         │   ├── repo_layout.py
         │   ├── makefile_rules.py
         │   ├── header_rules.py
-        │   ├── readme_required.py
         │   ├── required_functions.py
         │   ├── globals.py
         │   ├── forbidden_externals.py

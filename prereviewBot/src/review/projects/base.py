@@ -48,9 +48,6 @@ class ProjectSpec:
     forbidden_makefile_compilers: tuple[str, ...] = ()
     # Typedef name expected in the public header when bonus is enabled (e.g. "t_list").
     bonus_typedef_name: str | None = None
-    # README rules.
-    readme_required_sections: tuple[str, ...] = ()
-    readme_first_line_pattern: str | None = None
     # Builder used by Runner to materialise the list of checks for this project.
     check_builder: "CheckBuilder | None" = field(default=None)
 
