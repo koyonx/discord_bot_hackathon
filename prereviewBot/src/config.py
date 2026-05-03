@@ -13,18 +13,29 @@ class Config:
     total_timeout_seconds: float
 
 
+def _env(name: str, default: str = "") -> str:
+    """Read an env var, treating empty/whitespace-only values as unset.
+
+    docker-compose's env_file injects keys with empty values verbatim, so
+    `REVIEW_CHECK_TIMEOUT_SECONDS=` in .env would otherwise yield "" and break
+    float() coercion below.
+    """
+    value = os.environ.get(name, "").strip()
+    return value if value else default
+
+
 def load_config() -> Config:
-    token = os.environ.get("DISCORD_TOKEN", "").strip()
+    token = _env("DISCORD_TOKEN")
     if not token:
         raise RuntimeError("DISCORD_TOKEN is required")
 
-    guild_id_raw = os.environ.get("DISCORD_GUILD_ID", "").strip()
+    guild_id_raw = _env("DISCORD_GUILD_ID")
     guild_id = int(guild_id_raw) if guild_id_raw else None
 
     return Config(
         discord_token=token,
         discord_guild_id=guild_id,
-        workspace_root=os.environ.get("REVIEW_WORKSPACE_ROOT", "/var/tmp/prereview"),
-        check_timeout_seconds=float(os.environ.get("REVIEW_CHECK_TIMEOUT_SECONDS", "120")),
-        total_timeout_seconds=float(os.environ.get("REVIEW_TOTAL_TIMEOUT_SECONDS", "600")),
+        workspace_root=_env("REVIEW_WORKSPACE_ROOT", "/var/tmp/prereview"),
+        check_timeout_seconds=float(_env("REVIEW_CHECK_TIMEOUT_SECONDS", "120")),
+        total_timeout_seconds=float(_env("REVIEW_TOTAL_TIMEOUT_SECONDS", "600")),
     )
