@@ -11,7 +11,7 @@
 discord_bot_hackathon/
 ├── README.md                  # このファイル(リポジトリ全体のルール)
 ├── .gitignore                 # 共通の除外設定
-└── <bot-name>/                # bot 1 つにつき 1 フォルダ
+└── <botName>/                # bot 1 つにつき 1 フォルダ
     ├── README.md              # bot の概要・起動手順
     ├── Dockerfile             # 実行環境の定義(必須)
     ├── docker-compose.yml     # 起動構成の定義(必須)
@@ -21,7 +21,7 @@ discord_bot_hackathon/
     └── src/                   # 実装本体(言語に応じて app/, cmd/ などでも可)
 ```
 
-`<bot-name>` は camelCase を推奨します(例: `welcomeBot`, `reminderBot`)。
+`<botName>` は camelCase を推奨します(例: `welcomeBot`, `reminderBot`)。
 
 ---
 
