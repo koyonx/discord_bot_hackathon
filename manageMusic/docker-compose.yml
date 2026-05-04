@@ -1,10 +1,19 @@
-version: "3.9"
-
 services:
-  manageMusic:
-    build: .
+  bot:
+    build: ./bot
     env_file: .env
     environment:
-      - DISCORD_TOKEN
-      - COMMAND_PREFIX
+      - DB_PATH=/data/manage_music.db
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    environment:
+      - DB_PATH=/data/manage_music.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
     restart: unless-stopped

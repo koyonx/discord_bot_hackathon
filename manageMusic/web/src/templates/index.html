@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>manageMusic - 掃除タイムプレイリスト</title>
+    <style>
+        :root { --accent: #1DB954; --danger: #c0392b; --border: #eee; --muted: #888; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", sans-serif; max-width: 1040px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+        h1 { border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; margin-bottom: 0.25rem; }
+        .meta { color: var(--muted); margin-bottom: 1.5rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.65rem 0.5rem; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+        th { background: #fafafa; font-size: 0.78rem; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
+        tr:hover td { background: #f7fbf9; }
+        a { color: var(--accent); text-decoration: none; word-break: break-all; }
+        a:hover { text-decoration: underline; }
+        .who, .when { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+        .empty { color: var(--muted); padding: 2.5rem; text-align: center; border: 1px dashed #ddd; border-radius: 6px; margin-top: 1rem; }
+        button { background: transparent; color: var(--danger); border: 1px solid #e6b6b0; padding: 0.3rem 0.7rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+        button:hover { background: var(--danger); color: white; }
+        code { background: #f3f3f3; padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <h1>🧹 掃除タイム プレイリスト</h1>
+    <p class="meta">登録曲数: {{ songs|length }} 件 / 削除はこの画面からのみ可能です。</p>
+
+    {% if songs %}
+    <table>
+        <thead>
+            <tr>
+                <th>曲名</th>
+                <th>アーティスト</th>
+                <th>URL</th>
+                <th>追加者</th>
+                <th>追加日時 (UTC)</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for song in songs %}
+            <tr>
+                <td>{{ song.title }}</td>
+                <td>{{ song.artist }}</td>
+                <td><a href="{{ song.url }}" target="_blank" rel="noopener noreferrer">{{ song.url }}</a></td>
+                <td class="who">{{ song.added_by_display_name }}</td>
+                <td class="when">{{ song.created_at }}</td>
+                <td>
+                    <form action="/delete/{{ song.id }}" method="post" onsubmit="return confirm('「{{ song.title }}」を削除しますか?');">
+                        <button type="submit">削除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+        まだ曲が登録されていません。<br>
+        Discord で <code>/add title:&lt;曲名&gt; artist:&lt;アーティスト&gt; url:&lt;URL&gt;</code> を実行してみましょう。
+    </div>
+    {% endif %}
+</body>
+</html>
