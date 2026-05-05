@@ -36,6 +36,7 @@ COG_MODULES = [
     "cogs.freeze_guide",
     "cogs.follow",
     "cogs.find_evaluator",
+    "cogs.events",
 ]
 
 

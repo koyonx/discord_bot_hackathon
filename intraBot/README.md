@@ -13,6 +13,10 @@
 - `/follow add\|remove\|list` … cadet をフォロー、校舎入室時に DM で通知
 - `/help` … コマンド一覧
 - `/freeze_guide` … freeze (休止) 申請の手順を表示
+- `/events list [days] [past] [kind] [theme]` … 42 Tokyo のイベント一覧 (種別/theme フィルタ可)
+- `/events show <id>` … イベント詳細表示
+- `/events register <id>` / `/events leave <id>` … 参加登録 / 取消 (本人 OAuth)
+- イベントリマインダー … 開始 1 時間前に登録者へ DM (5 分間隔 polling)
 - レビュー通知 … 自分が evaluator/evaluated になると DM が届く (60s ポーリング)
 - 新メンバー welcome … サーバー参加時に DM で `/link` を案内
 

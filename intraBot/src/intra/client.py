@@ -221,6 +221,46 @@ class IntraClient:
             params={"filter[active]": "true"},
         )
 
+    async def get_campus_events(self, campus_id: int) -> list[dict]:
+        """campus のイベント一覧 (過去〜未来全部)。クライアント側で絞る前提。"""
+        return await self._paginate(
+            f"/v2/campus/{campus_id}/events",
+            params={"sort": "-begin_at"},
+            max_pages=5,
+        )
+
+    async def get_event(self, event_id: int) -> dict:
+        return await self._get(f"/v2/events/{event_id}")
+
+    async def get_event_users(self, event_id: int) -> list[dict]:
+        """event の参加者一覧 (events_users)."""
+        return await self._paginate(f"/v2/events/{event_id}/events_users", max_pages=10)
+
+    async def register_event(self, user_token: str, event_id: int) -> dict:
+        """イベントに参加登録 (本人 OAuth トークン必須)."""
+        body = {"events_user": {"event_id": event_id}}
+        return await self._request("POST", "/v2/events_users", token=user_token, json=body)
+
+    async def find_user_event_registration(
+        self, user_token: str, user_id: int, event_id: int
+    ) -> dict | None:
+        """指定 event の自分の events_user を返す。未登録なら None."""
+        rows = await self._request(
+            "GET",
+            f"/v2/users/{user_id}/events_users",
+            token=user_token,
+            params={"filter[event_id]": event_id},
+        )
+        if isinstance(rows, list) and rows:
+            return rows[0]
+        return None
+
+    async def leave_event(self, user_token: str, events_user_id: int) -> None:
+        """イベント参加を取り消し (events_user id を指定)."""
+        await self._request(
+            "DELETE", f"/v2/events_users/{events_user_id}", token=user_token
+        )
+
     async def get_campus_users(
         self,
         campus_id: int,

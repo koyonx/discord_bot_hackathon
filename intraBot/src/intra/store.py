@@ -41,6 +41,13 @@ CREATE TABLE IF NOT EXISTS follows (
 );
 
 CREATE INDEX IF NOT EXISTS idx_follows_target ON follows(target_intra_user_id);
+
+CREATE TABLE IF NOT EXISTS event_reminders_sent (
+    discord_id TEXT NOT NULL,
+    event_id INTEGER NOT NULL,
+    sent_at INTEGER NOT NULL,
+    PRIMARY KEY (discord_id, event_id)
+);
 """
 
 
@@ -229,3 +236,20 @@ class Store:
             ) as cur:
                 rows = await cur.fetchall()
         return [r[0] for r in rows]
+
+    # ----- event_reminders_sent -----
+    async def is_event_reminder_sent(self, discord_id: str, event_id: int) -> bool:
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                "SELECT 1 FROM event_reminders_sent WHERE discord_id = ? AND event_id = ?",
+                (discord_id, event_id),
+            ) as cur:
+                return (await cur.fetchone()) is not None
+
+    async def mark_event_reminder_sent(self, discord_id: str, event_id: int) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "INSERT OR IGNORE INTO event_reminders_sent (discord_id, event_id, sent_at) VALUES (?, ?, ?)",
+                (discord_id, event_id, int(time.time())),
+            )
+            await db.commit()
