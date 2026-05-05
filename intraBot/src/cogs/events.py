@@ -143,14 +143,9 @@ class EventsCog(commands.GroupCog, name="events", description="42 Tokyo イベ�
             title=f"📅 42 Tokyo イベント — {label}{cond} ({len(filtered)} 件)",
             color=0x00BABC,
         )
-        for begin, end, e in filtered[:10]:
-            value = _render_event_field(begin, end, e, include_id=True)
-            kind_emoji = KIND_EMOJI.get(e.get("kind") or "other", "📌")
-            embed.add_field(
-                name=f"{kind_emoji} {e.get('name', '?')}",
-                value=value,
-                inline=False,
-            )
+        blocks = [_render_event_block(b, e, evt) for b, e, evt in filtered[:10]]
+        # 区切り線で 1 ブロック = 1 イベントを視覚的に分ける
+        embed.description = ("\n" + "─" * 24 + "\n\n").join(blocks)
         if len(filtered) > 10:
             embed.set_footer(text=f"... 他 {len(filtered) - 10} 件 — `/events list days:90` 等で広げられます")
         await interaction.followup.send(embed=embed)
@@ -337,7 +332,10 @@ class EventsCog(commands.GroupCog, name="events", description="42 Tokyo イベ�
             log.exception("events reminder: DM send failed for %s", discord_id)
 
 
-def _render_event_field(begin: datetime, end: datetime, e: dict, *, include_id: bool = False) -> str:
+def _render_event_block(begin: datetime, end: datetime, e: dict) -> str:
+    """1 イベント分の markdown ブロック (description 用)。"""
+    kind = e.get("kind") or "other"
+    emoji = KIND_EMOJI.get(kind, "📌")
     jst_b = begin.astimezone(JST)
     jst_e = end.astimezone(JST)
     if jst_b.date() == jst_e.date():
@@ -348,10 +346,13 @@ def _render_event_field(begin: datetime, end: datetime, e: dict, *, include_id: 
     sub = e.get("nbr_subscribers")
     cap = e.get("max_people")
     people = f"{sub if sub is not None else '?'}/{cap if cap else '∞'}"
-    parts = [f"⏰ {time_str}", f"📍 {location}", f"👥 {people}"]
-    if include_id:
-        parts.append(f"🆔 `{e.get('id')}`")
-    return "\n".join(parts)
+    name = e.get("name", "?")
+    return (
+        f"{emoji} **{name}**\n"
+        f"⏰ {time_str}\n"
+        f"📍 {location}\n"
+        f"👥 {people}　🆔 `{e.get('id')}`"
+    )
 
 
 async def setup(bot: commands.Bot) -> None:
