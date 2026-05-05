@@ -9,7 +9,11 @@ from discord.ext import commands, tasks
 log = logging.getLogger("intraBot.cog.follow")
 
 
-class FollowCog(commands.GroupCog, name="follow"):
+class FollowCog(
+    commands.GroupCog,
+    name="follow",
+    description="cadet をフォロー、校舎入室時に DM 通知",
+):
     """`/follow add|remove|list` + 在校入室検知 BG task。
 
     フォロー対象が新たに active location に現れたら、フォロワーに DM 通知。
