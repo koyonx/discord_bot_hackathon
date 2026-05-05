@@ -253,6 +253,27 @@ class IntraClient:
         """exam の参加者一覧 (exams_users)."""
         return await self._paginate(f"/v2/exams/{exam_id}/exams_users", max_pages=10)
 
+    async def register_exam(self, user_token: str, exam_id: int) -> dict:
+        """exam に参加登録 (本人 OAuth)."""
+        body = {"exams_user": {"exam_id": exam_id}}
+        return await self._request("POST", "/v2/exams_users", token=user_token, json=body)
+
+    async def find_user_exam_registration(
+        self, user_token: str, user_id: int, exam_id: int
+    ) -> dict | None:
+        rows = await self._request(
+            "GET",
+            f"/v2/users/{user_id}/exams_users",
+            token=user_token,
+            params={"filter[exam_id]": exam_id},
+        )
+        if isinstance(rows, list) and rows:
+            return rows[0]
+        return None
+
+    async def leave_exam(self, user_token: str, exams_user_id: int) -> None:
+        await self._request("DELETE", f"/v2/exams_users/{exams_user_id}", token=user_token)
+
     async def register_event(self, user_token: str, event_id: int) -> dict:
         """イベントに参加登録 (本人 OAuth トークン必須)."""
         body = {"events_user": {"event_id": event_id}}

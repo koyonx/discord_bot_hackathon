@@ -231,8 +231,8 @@ class EventsCog(commands.GroupCog, name="events", description="42 Tokyo イベ�
 
     # ===== /events register <id> =====
 
-    @app_commands.command(name="register", description="イベントに参加登録 (本人 OAuth)")
-    @app_commands.describe(event_id="登録する event ID")
+    @app_commands.command(name="register", description="イベント / exam に参加登録 (本人 OAuth)")
+    @app_commands.describe(event_id="登録する event / exam の ID")
     async def register(self, interaction: discord.Interaction, event_id: int) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
         try:
@@ -244,21 +244,35 @@ class EventsCog(commands.GroupCog, name="events", description="42 Tokyo イベ�
                 "先に `/link` で 42 アカウントを紐付けてください。", ephemeral=True
             )
             return
+
+        kind = await self._detect_kind(event_id)
+        if kind is None:
+            await interaction.followup.send(
+                f"❌ id `{event_id}` は events / exams のいずれにも存在しません。",
+                ephemeral=True,
+            )
+            return
         try:
-            await self.bot.client.register_event(token, event_id)
+            if kind == "exam":
+                await self.bot.client.register_exam(token, event_id)
+            else:
+                await self.bot.client.register_event(token, event_id)
         except IntraError as e:
-            log.error("events register: event=%s failed: %s", event_id, e)
-            await interaction.followup.send(f"❌ 登録失敗: {e}", ephemeral=True)
+            log.error("events register: %s id=%s failed: %s", kind, event_id, e)
+            hint = ""
+            if e.status == 403:
+                hint = "\n(必要 scope が足りない可能性。`/link` で再認可を試してください)"
+            await interaction.followup.send(f"❌ {kind} 登録失敗: {e}{hint}", ephemeral=True)
             return
         await interaction.followup.send(
-            f"✅ event `{event_id}` に参加登録しました ({user.intra_login})。",
+            f"✅ {kind} `{event_id}` に参加登録しました ({user.intra_login})。",
             ephemeral=True,
         )
 
     # ===== /events leave <id> =====
 
-    @app_commands.command(name="leave", description="イベント参加を取消 (本人 OAuth)")
-    @app_commands.describe(event_id="取消する event ID")
+    @app_commands.command(name="leave", description="イベント / exam の参加を取消 (本人 OAuth)")
+    @app_commands.describe(event_id="取消する event / exam の ID")
     async def leave(self, interaction: discord.Interaction, event_id: int) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
         try:
@@ -270,28 +284,63 @@ class EventsCog(commands.GroupCog, name="events", description="42 Tokyo イベ�
                 "先に `/link` で 42 アカウントを紐付けてください。", ephemeral=True
             )
             return
-        try:
-            registration = await self.bot.client.find_user_event_registration(
-                token, user.intra_user_id, event_id
+
+        kind = await self._detect_kind(event_id)
+        if kind is None:
+            await interaction.followup.send(
+                f"❌ id `{event_id}` は events / exams のいずれにも存在しません。",
+                ephemeral=True,
             )
+            return
+
+        try:
+            if kind == "exam":
+                registration = await self.bot.client.find_user_exam_registration(
+                    token, user.intra_user_id, event_id
+                )
+            else:
+                registration = await self.bot.client.find_user_event_registration(
+                    token, user.intra_user_id, event_id
+                )
         except IntraError as e:
-            log.error("events leave: lookup event=%s failed: %s", event_id, e)
+            log.error("events leave: lookup %s id=%s failed: %s", kind, event_id, e)
             await interaction.followup.send(f"❌ 検索失敗: {e}", ephemeral=True)
             return
         if not registration:
             await interaction.followup.send(
-                f"event `{event_id}` には参加登録していません。", ephemeral=True
+                f"{kind} `{event_id}` には参加登録していません。", ephemeral=True
             )
             return
+
         try:
-            await self.bot.client.leave_event(token, int(registration["id"]))
+            if kind == "exam":
+                await self.bot.client.leave_exam(token, int(registration["id"]))
+            else:
+                await self.bot.client.leave_event(token, int(registration["id"]))
         except IntraError as e:
-            log.error("events leave: delete event=%s eu_id=%s failed: %s", event_id, registration.get("id"), e)
+            log.error("events leave: delete %s id=%s eu_id=%s failed: %s",
+                     kind, event_id, registration.get("id"), e)
             await interaction.followup.send(f"❌ 取消失敗: {e}", ephemeral=True)
             return
         await interaction.followup.send(
-            f"🗑 event `{event_id}` の参加を取消しました。", ephemeral=True
+            f"🗑 {kind} `{event_id}` の参加を取消しました。", ephemeral=True
         )
+
+    async def _detect_kind(self, target_id: int) -> str | None:
+        """id が event か exam か判定。app_token で軽く HEAD 的に試す。"""
+        try:
+            await self.bot.client.get_event(target_id)
+            return "event"
+        except IntraError as e:
+            if e.status != 404:
+                log.warning("_detect_kind: events lookup unexpected error: %s", e)
+        try:
+            await self.bot.client.get_exam(target_id)
+            return "exam"
+        except IntraError as e:
+            if e.status != 404:
+                log.warning("_detect_kind: exams lookup unexpected error: %s", e)
+        return None
 
     # ===== background: 1h 前 reminder =====
 
