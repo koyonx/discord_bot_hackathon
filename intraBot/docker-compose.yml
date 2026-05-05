@@ -1,0 +1,11 @@
+services:
+  intrabot:
+    build: .
+    image: intrabot:latest
+    container_name: intrabot
+    env_file: .env
+    ports:
+      - "4242:4242"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
