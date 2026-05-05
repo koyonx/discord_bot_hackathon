@@ -83,11 +83,29 @@ class EventsCog(commands.GroupCog, name="events", description="42 Tokyo イベ�
         theme: str | None = None,
     ) -> None:
         await interaction.response.defer(thinking=True)
-        try:
-            evts = await self.bot.client.get_campus_events(self.bot.campus_id)
-        except Exception as e:
-            log.error("events list: fetch failed: %s", e)
-            await interaction.followup.send(f"❌ イベント取得失敗: {e}")
+        import asyncio
+        evts_raw, exams_raw = await asyncio.gather(
+            self.bot.client.get_campus_events(self.bot.campus_id),
+            self.bot.client.get_campus_exams(self.bot.campus_id),
+            return_exceptions=True,
+        )
+        if isinstance(evts_raw, Exception):
+            log.error("events list: events fetch failed: %s", evts_raw)
+        if isinstance(exams_raw, Exception):
+            log.error("events list: exams fetch failed: %s", exams_raw)
+        evts: list[dict] = list(evts_raw) if isinstance(evts_raw, list) else []
+        exams: list[dict] = list(exams_raw) if isinstance(exams_raw, list) else []
+
+        # exam 側に _type と kind を補完して events と統合
+        for ex in exams:
+            ex["_type"] = "exam"
+            ex.setdefault("kind", "exam")
+        for ev in evts:
+            ev["_type"] = "event"
+        evts = evts + exams
+
+        if not evts:
+            await interaction.followup.send("❌ イベント取得失敗 (events / exams ともに 0 件)")
             return
 
         kind_value = kind.value if kind else None
@@ -153,15 +171,25 @@ class EventsCog(commands.GroupCog, name="events", description="42 Tokyo イベ�
     # ===== /events show <id> =====
 
     @app_commands.command(name="show", description="イベントの詳細を表示")
-    @app_commands.describe(event_id="イベント ID (`/events list` の各エントリ末尾の id)")
+    @app_commands.describe(event_id="イベント / exam の ID")
     async def show(self, interaction: discord.Interaction, event_id: int) -> None:
         await interaction.response.defer(thinking=True)
+        evt: dict | None = None
+        # event → exam の順で試す
         try:
             evt = await self.bot.client.get_event(event_id)
-        except IntraError as e:
-            log.warning("events show: get_event(%s) failed: %s", event_id, e)
-            await interaction.followup.send(f"❌ event `{event_id}` 取得失敗: {e}")
-            return
+        except IntraError as e1:
+            log.info("events show: not in events (%s), trying exams", e1)
+            try:
+                evt = await self.bot.client.get_exam(event_id)
+                evt["_type"] = "exam"
+                evt.setdefault("kind", "exam")
+            except IntraError as e2:
+                log.warning("events show: id=%s not found in events nor exams: %s / %s", event_id, e1, e2)
+                await interaction.followup.send(
+                    f"❌ id `{event_id}` は events / exams のいずれにも存在しません"
+                )
+                return
         try:
             begin = datetime.fromisoformat((evt.get("begin_at") or "").replace("Z", "+00:00"))
             end = datetime.fromisoformat(
@@ -269,17 +297,30 @@ class EventsCog(commands.GroupCog, name="events", description="42 Tokyo イベ�
 
     @tasks.loop(seconds=REMINDER_POLL_SEC)
     async def reminder(self) -> None:
-        try:
-            evts = await self.bot.client.get_campus_events(self.bot.campus_id)
-        except Exception as e:
-            log.warning("events reminder: campus events fetch failed: %s", e)
-            return
+        import asyncio
+        evts_raw, exams_raw = await asyncio.gather(
+            self.bot.client.get_campus_events(self.bot.campus_id),
+            self.bot.client.get_campus_exams(self.bot.campus_id),
+            return_exceptions=True,
+        )
+        if isinstance(evts_raw, Exception):
+            log.warning("events reminder: events fetch failed: %s", evts_raw)
+        if isinstance(exams_raw, Exception):
+            log.warning("events reminder: exams fetch failed: %s", exams_raw)
+        evts = list(evts_raw) if isinstance(evts_raw, list) else []
+        exams = list(exams_raw) if isinstance(exams_raw, list) else []
+        for ex in exams:
+            ex["_type"] = "exam"
+            ex.setdefault("kind", "exam")
+        for ev in evts:
+            ev["_type"] = "event"
+        all_evts = evts + exams
 
         now = datetime.now(timezone.utc)
         lo = now + timedelta(minutes=REMINDER_LEAD_MIN - REMINDER_WINDOW_MIN / 2)
         hi = now + timedelta(minutes=REMINDER_LEAD_MIN + REMINDER_WINDOW_MIN / 2)
 
-        for evt in evts:
+        for evt in all_evts:
             try:
                 begin = datetime.fromisoformat((evt.get("begin_at") or "").replace("Z", "+00:00"))
             except Exception:
@@ -287,11 +328,17 @@ class EventsCog(commands.GroupCog, name="events", description="42 Tokyo イベ�
             if not (lo <= begin <= hi):
                 continue
             event_id = int(evt["id"])
+            etype = evt.get("_type", "event")
             try:
-                evt_users = await self.bot.client.get_event_users(event_id)
+                if etype == "exam":
+                    evt_users = await self.bot.client.get_exam_users(event_id)
+                else:
+                    evt_users = await self.bot.client.get_event_users(event_id)
             except Exception as e:
-                log.warning("events reminder: event_users(%s) failed: %s", event_id, e)
+                log.warning("events reminder: %s_users(%s) failed: %s", etype, event_id, e)
                 continue
+            # event_id だけだと exam id と衝突する可能性があるので type を含めた key にする
+            seen_key = event_id if etype == "event" else -event_id
             for eu in evt_users:
                 login = (eu.get("user") or {}).get("login")
                 if not login:
@@ -299,10 +346,10 @@ class EventsCog(commands.GroupCog, name="events", description="42 Tokyo イベ�
                 entry = await self.bot.store.get_by_login(login)
                 if not entry:
                     continue
-                if await self.bot.store.is_event_reminder_sent(entry.discord_id, event_id):
+                if await self.bot.store.is_event_reminder_sent(entry.discord_id, seen_key):
                     continue
                 await self._dm_reminder(entry.discord_id, evt, begin)
-                await self.bot.store.mark_event_reminder_sent(entry.discord_id, event_id)
+                await self.bot.store.mark_event_reminder_sent(entry.discord_id, seen_key)
 
     @reminder.before_loop
     async def _wait_ready(self) -> None:

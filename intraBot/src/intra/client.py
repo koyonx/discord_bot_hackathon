@@ -236,6 +236,23 @@ class IntraClient:
         """event の参加者一覧 (events_users)."""
         return await self._paginate(f"/v2/events/{event_id}/events_users", max_pages=10)
 
+    # ----- exams (events と別エンドポイント) -----
+
+    async def get_campus_exams(self, campus_id: int) -> list[dict]:
+        """campus の exams 一覧。"""
+        return await self._paginate(
+            f"/v2/campus/{campus_id}/exams",
+            params={"sort": "-begin_at"},
+            max_pages=5,
+        )
+
+    async def get_exam(self, exam_id: int) -> dict:
+        return await self._get(f"/v2/exams/{exam_id}")
+
+    async def get_exam_users(self, exam_id: int) -> list[dict]:
+        """exam の参加者一覧 (exams_users)."""
+        return await self._paginate(f"/v2/exams/{exam_id}/exams_users", max_pages=10)
+
     async def register_event(self, user_token: str, event_id: int) -> dict:
         """イベントに参加登録 (本人 OAuth トークン必須)."""
         body = {"events_user": {"event_id": event_id}}
