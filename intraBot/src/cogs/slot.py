@@ -57,7 +57,7 @@ class SlotCog(commands.GroupCog, name="slot"):
             ephemeral=True,
         )
 
-    @app_commands.command(name="list", description="自分の slot 一覧")
+    @app_commands.command(name="list", description="自分の slot 一覧 + キャンセルボタン")
     async def list_slots(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)
         try:
@@ -76,16 +76,13 @@ class SlotCog(commands.GroupCog, name="slot"):
             await interaction.followup.send("登録済みの slot はありません。", ephemeral=True)
             return
 
-        lines = []
-        for s in slots[:25]:
-            try:
-                b = datetime.fromisoformat(s["begin_at"].replace("Z", "+00:00"))
-                e = datetime.fromisoformat(s["end_at"].replace("Z", "+00:00"))
-                lines.append(f"• `{s['id']}` {_jst(b):%m/%d %H:%M} 〜 {_jst(e):%H:%M}")
-            except Exception:
-                log.warning("slot list: parse failed for slot=%r", s)
-                lines.append(f"• `{s.get('id')}` {s.get('begin_at')} 〜 {s.get('end_at')}")
-        await interaction.followup.send("\n".join(lines), ephemeral=True)
+        embed, options = _build_list_embed(slots)
+        view: discord.ui.View | None
+        if options:
+            view = SlotCancelView(self.bot, options)
+        else:
+            view = None
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     @app_commands.command(name="del", description="自分の slot を削除")
     @app_commands.describe(slot_id="削除する slot の ID (`/slot list` で確認)")
@@ -103,6 +100,75 @@ class SlotCog(commands.GroupCog, name="slot"):
             await interaction.followup.send(f"❌ slot 削除失敗: {e}", ephemeral=True)
             return
         await interaction.followup.send(f"🗑 slot `{slot_id}` を削除しました。", ephemeral=True)
+
+
+def _build_list_embed(slots: list[dict]) -> tuple[discord.Embed, list[discord.SelectOption]]:
+    """slot 一覧 embed と Select 用 options を作る (最大 25 件)。"""
+    embed = discord.Embed(
+        title=f"📅 自分の slot ({len(slots)} 件)",
+        color=0x00BABC,
+    )
+    options: list[discord.SelectOption] = []
+    for s in slots[:25]:
+        sid = s.get("id")
+        try:
+            b = datetime.fromisoformat(s["begin_at"].replace("Z", "+00:00"))
+            e = datetime.fromisoformat(s["end_at"].replace("Z", "+00:00"))
+            label = f"{_jst(b):%m/%d (%a) %H:%M}〜{_jst(e):%H:%M}"
+            value = f"`{sid}` — {label}"
+        except Exception:
+            log.warning("slot list: parse failed for slot=%r", s)
+            label = f"{s.get('begin_at')} 〜 {s.get('end_at')}"
+            value = f"`{sid}` — (parse 失敗) {label}"
+        embed.add_field(name=f"id `{sid}`", value=label, inline=False)
+        if sid is not None:
+            options.append(discord.SelectOption(label=label[:100], value=str(sid)))
+    if len(slots) > 25:
+        embed.set_footer(text=f"... 他 {len(slots) - 25} 件 (Select には載っていません)")
+    return embed, options
+
+
+class SlotCancelView(discord.ui.View):
+    def __init__(self, bot: commands.Bot, options: list[discord.SelectOption]):
+        super().__init__(timeout=300)
+        self.add_item(SlotCancelSelect(bot, options))
+
+
+class SlotCancelSelect(discord.ui.Select):
+    def __init__(self, bot: commands.Bot, options: list[discord.SelectOption]):
+        self.bot = bot
+        super().__init__(
+            placeholder="キャンセルする slot を選ぶ…",
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        slot_id_str = self.values[0]
+        try:
+            slot_id = int(slot_id_str)
+        except ValueError:
+            await interaction.response.send_message("❌ 不正な slot id", ephemeral=True)
+            return
+        try:
+            _, token = await get_valid_user_token(
+                self.bot.store, self.bot.client, str(interaction.user.id)
+            )
+        except NotLinkedError:
+            await interaction.response.send_message(
+                "先に `/link` で 42 アカウントを紐付けてください。", ephemeral=True
+            )
+            return
+        try:
+            await self.bot.client.delete_slot(token, slot_id)
+        except IntraError as e:
+            log.error("slot list-cancel: delete_slot(id=%s) failed: %s", slot_id, e)
+            await interaction.response.send_message(f"❌ 削除失敗: {e}", ephemeral=True)
+            return
+        await interaction.response.send_message(
+            f"🗑 slot `{slot_id}` をキャンセルしました。", ephemeral=True
+        )
 
 
 JST = timezone(timedelta(hours=9))

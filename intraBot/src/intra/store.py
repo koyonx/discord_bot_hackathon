@@ -31,6 +31,16 @@ CREATE TABLE IF NOT EXISTS notify_seen (
     seen_at INTEGER NOT NULL,
     PRIMARY KEY (discord_id, scale_team_id)
 );
+
+CREATE TABLE IF NOT EXISTS follows (
+    follower_discord_id TEXT NOT NULL,
+    target_intra_login TEXT NOT NULL,
+    target_intra_user_id INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (follower_discord_id, target_intra_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_follows_target ON follows(target_intra_user_id);
 """
 
 
@@ -174,3 +184,48 @@ class Store:
                 (discord_id, scale_team_id, int(time.time())),
             )
             await db.commit()
+
+    # ----- follows -----
+    async def add_follow(
+        self, follower_discord_id: str, target_login: str, target_user_id: int
+    ) -> None:
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO follows (follower_discord_id, target_intra_login, target_intra_user_id, created_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(follower_discord_id, target_intra_user_id) DO UPDATE SET
+                    target_intra_login=excluded.target_intra_login
+                """,
+                (follower_discord_id, target_login, target_user_id, int(time.time())),
+            )
+            await db.commit()
+
+    async def remove_follow(self, follower_discord_id: str, target_login: str) -> bool:
+        async with aiosqlite.connect(self.db_path) as db:
+            cur = await db.execute(
+                "DELETE FROM follows WHERE follower_discord_id = ? AND target_intra_login = ?",
+                (follower_discord_id, target_login),
+            )
+            await db.commit()
+            return (cur.rowcount or 0) > 0
+
+    async def list_follows(self, follower_discord_id: str) -> list[tuple[str, int]]:
+        """Return list of (target_login, target_user_id) for the follower."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                "SELECT target_intra_login, target_intra_user_id FROM follows WHERE follower_discord_id = ? ORDER BY target_intra_login",
+                (follower_discord_id,),
+            ) as cur:
+                rows = await cur.fetchall()
+        return [(r[0], int(r[1])) for r in rows]
+
+    async def get_followers_of(self, target_user_id: int) -> list[str]:
+        """Return discord_ids that follow the given target user."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                "SELECT follower_discord_id FROM follows WHERE target_intra_user_id = ?",
+                (target_user_id,),
+            ) as cur:
+                rows = await cur.fetchall()
+        return [r[0] for r in rows]

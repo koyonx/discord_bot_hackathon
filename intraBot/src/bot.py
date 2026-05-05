@@ -32,6 +32,10 @@ COG_MODULES = [
     "cogs.online",
     "cogs.notify",
     "cogs.welcome",
+    "cogs.help",
+    "cogs.freeze_guide",
+    "cogs.follow",
+    "cogs.find_evaluator",
 ]
 
 
