@@ -379,18 +379,32 @@ class IntraClient:
     ) -> dict:
         """slot を作成。
 
-        42 API doc によれば body に `user_ids` (array) を付け、その値は
-        OAuth token の owner と一致させる必要がある。15 分粒度に丸められ、
-        duration が 15 分超なら複数の slot に分割される。
+        42 apidoc は外部から取得できない (403) ため、想定される複数の body 形式と
+        path を順に試行し、通ったものを採用する。成功した variant は log.info に出る。
         """
-        body = {
-            "slot": {
-                "user_ids": [user_id],
-                "begin_at": begin_at_iso,
-                "end_at": end_at_iso,
-            }
-        }
-        return await self._request("POST", "/v2/slots", token=user_token, json=body)
+        base = {"begin_at": begin_at_iso, "end_at": end_at_iso}
+        attempts: list[tuple[str, str, str, dict]] = [
+            ("POST",  "/v2/slots",  "slot.user_ids",  {"slot": {**base, "user_ids": [user_id]}}),
+            ("POST",  "/v2/slots",  "slot.user_id",   {"slot": {**base, "user_id": user_id}}),
+            ("POST",  "/v2/slots",  "slot.no_user",   {"slot": base}),
+            ("POST",  "/v2/slots",  "flat.user_ids",  {**base, "user_ids": [user_id]}),
+            ("POST",  "/v2/me/slots", "me.slot.no_user", {"slot": base}),
+            ("POST",  "/v2/me/slots", "me.slot.user_ids", {"slot": {**base, "user_ids": [user_id]}}),
+        ]
+        last_err: IntraError | None = None
+        for method, path, label, body in attempts:
+            try:
+                res = await self._request(method, path, token=user_token, json=body)
+                log.info("create_slot variant '%s' (%s %s) succeeded", label, method, path)
+                return res
+            except IntraError as e:
+                log.warning("create_slot variant '%s' (%s %s) failed: %s", label, method, path, e)
+                last_err = e
+                if e.status not in (400, 404, 422):
+                    raise
+        if last_err:
+            raise last_err
+        raise IntraError(0, "create_slot: all variants failed unexpectedly")
 
     async def delete_slot(self, user_token: str, slot_id: int) -> None:
         await self._request("DELETE", f"/v2/slots/{slot_id}", token=user_token)
