@@ -416,8 +416,59 @@ class IntraClient:
         )
 
     async def get_project_full(self, project_id: int) -> dict:
-        """project の詳細 (scales 含む)."""
+        """project の詳細 (project_sessions など含む)."""
         return await self._get(f"/v2/projects/{project_id}")
+
+    async def resolve_project_scale_id(
+        self, project_id: int, cursus_id: int = 21
+    ) -> int | None:
+        """project の代表 scale_id を解決。多段 fallback で粘る。
+
+        観測上、project 直下の `scales` は空になることが多く、実体は
+        `project_sessions[].scales[]` にあるケースが多い。
+        """
+        # 1. /v2/projects/:id を取り、scales 直下 or project_sessions 経由
+        try:
+            full = await self._get(f"/v2/projects/{project_id}")
+        except IntraError as e:
+            log.warning("resolve_project_scale_id: project lookup failed: %s", e)
+            full = {}
+
+        if isinstance(full.get("scales"), list) and full["scales"]:
+            return int(full["scales"][0]["id"])
+
+        sessions = full.get("project_sessions") or []
+        # cursus を優先
+        ordered = (
+            [s for s in sessions if s.get("cursus_id") == cursus_id]
+            + [s for s in sessions if s.get("cursus_id") != cursus_id]
+        )
+        for s in ordered:
+            sc = s.get("scales") or []
+            if sc:
+                return int(sc[0]["id"])
+            # project_sessions の中身が薄い時は個別に取りに行く
+            sid = s.get("id")
+            if sid is not None:
+                try:
+                    sess_full = await self._get(f"/v2/project_sessions/{sid}")
+                    sc = sess_full.get("scales") or []
+                    if sc:
+                        return int(sc[0]["id"])
+                except IntraError as e:
+                    log.warning(
+                        "resolve_project_scale_id: project_session(%s) failed: %s", sid, e
+                    )
+
+        # 2. /v2/projects/:id/scales 直接
+        try:
+            rows = await self._get(f"/v2/projects/{project_id}/scales")
+            if isinstance(rows, list) and rows:
+                return int(rows[0]["id"])
+        except IntraError as e:
+            log.warning("resolve_project_scale_id: /scales endpoint failed: %s", e)
+
+        return None
 
     async def book_scale_team(
         self,

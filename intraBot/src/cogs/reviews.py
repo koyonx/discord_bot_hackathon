@@ -73,20 +73,22 @@ class ReviewsCog(commands.GroupCog, name="reviews", description="自分のレビ
             )
             return
 
-        # scale_id (project の rubric)
-        scales = proj.get("scales") or []
-        if not scales:
+        # scale_id (project の rubric) を解決。多段 fallback で粘る
+        scale_id: int | None = None
+        if proj.get("scales"):
             try:
-                full = await self.bot.client.get_project_full(proj_id)
-                scales = full.get("scales") or []
-            except IntraError as e:
-                log.warning("reviews book: get_project_full failed: %s", e)
-        if not scales:
+                scale_id = int(proj["scales"][0]["id"])
+            except Exception:
+                scale_id = None
+        if scale_id is None:
+            scale_id = await self.bot.client.resolve_project_scale_id(proj_id)
+        if scale_id is None:
+            log.error("reviews book: scale_id resolve failed for project=%s", proj_name)
             await interaction.followup.send(
-                f"❌ `{proj_name}` の scale が見つかりません。", ephemeral=True
+                f"❌ `{proj_name}` の scale が解決できませんでした。intra 側の Find a peer を使ってください。",
+                ephemeral=True,
             )
             return
-        scale_id = int(scales[0]["id"])
 
         # 空き slot 取得 → フィルタ (未来 / 未予約 / 自分以外)
         try:
