@@ -377,34 +377,18 @@ class IntraClient:
         begin_at_iso: str,
         end_at_iso: str,
     ) -> dict:
-        """slot を作成。
+        """slot を作成。POST /v2/slots, body: `{"slot": {"user_id": ..., "begin_at": ..., "end_at": ...}}`.
 
-        42 apidoc は外部から取得できない (403) ため、想定される複数の body 形式と
-        path を順に試行し、通ったものを採用する。成功した variant は log.info に出る。
+        duration が 15 分超なら API 側で 15 分単位の slot に自動分割される (= 複数行になる)。
         """
-        base = {"begin_at": begin_at_iso, "end_at": end_at_iso}
-        attempts: list[tuple[str, str, str, dict]] = [
-            ("POST",  "/v2/slots",  "slot.user_ids",  {"slot": {**base, "user_ids": [user_id]}}),
-            ("POST",  "/v2/slots",  "slot.user_id",   {"slot": {**base, "user_id": user_id}}),
-            ("POST",  "/v2/slots",  "slot.no_user",   {"slot": base}),
-            ("POST",  "/v2/slots",  "flat.user_ids",  {**base, "user_ids": [user_id]}),
-            ("POST",  "/v2/me/slots", "me.slot.no_user", {"slot": base}),
-            ("POST",  "/v2/me/slots", "me.slot.user_ids", {"slot": {**base, "user_ids": [user_id]}}),
-        ]
-        last_err: IntraError | None = None
-        for method, path, label, body in attempts:
-            try:
-                res = await self._request(method, path, token=user_token, json=body)
-                log.info("create_slot variant '%s' (%s %s) succeeded", label, method, path)
-                return res
-            except IntraError as e:
-                log.warning("create_slot variant '%s' (%s %s) failed: %s", label, method, path, e)
-                last_err = e
-                if e.status not in (400, 404, 422):
-                    raise
-        if last_err:
-            raise last_err
-        raise IntraError(0, "create_slot: all variants failed unexpectedly")
+        body = {
+            "slot": {
+                "user_id": user_id,
+                "begin_at": begin_at_iso,
+                "end_at": end_at_iso,
+            }
+        }
+        return await self._request("POST", "/v2/slots", token=user_token, json=body)
 
     async def delete_slot(self, user_token: str, slot_id: int) -> None:
         await self._request("DELETE", f"/v2/slots/{slot_id}", token=user_token)

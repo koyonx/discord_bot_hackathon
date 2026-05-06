@@ -78,10 +78,10 @@ class SlotCog(commands.GroupCog, name="slot"):
             await interaction.followup.send("登録済みの slot はありません。", ephemeral=True)
             return
 
-        embed, options = _build_list_embed(slots)
+        embed, options, group_map = _build_list_embed(slots)
         view: discord.ui.View | None
         if options:
-            view = SlotCancelView(self.bot, options)
+            view = SlotCancelView(self.bot, options, group_map)
         else:
             view = None
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
@@ -104,54 +104,108 @@ class SlotCog(commands.GroupCog, name="slot"):
         await interaction.followup.send(f"🗑 slot `{slot_id}` を削除しました。", ephemeral=True)
 
 
-def _build_list_embed(slots: list[dict]) -> tuple[discord.Embed, list[discord.SelectOption]]:
-    """slot 一覧 embed と Select 用 options を作る (最大 25 件)。"""
-    embed = discord.Embed(
-        title=f"📅 自分の slot ({len(slots)} 件)",
-        color=0x00BABC,
-    )
-    options: list[discord.SelectOption] = []
-    for s in slots[:25]:
-        sid = s.get("id")
+def _group_consecutive_slots(slots: list[dict]) -> list[list[dict]]:
+    """begin_at 昇順にソートし、`前 slot.end_at == 次 slot.begin_at` の連続を 1 ブロックにまとめる。"""
+    parsed: list[tuple[datetime, datetime, dict]] = []
+    for s in slots:
         try:
             b = datetime.fromisoformat(s["begin_at"].replace("Z", "+00:00"))
             e = datetime.fromisoformat(s["end_at"].replace("Z", "+00:00"))
-            label = f"{_jst(b):%m/%d (%a) %H:%M}〜{_jst(e):%H:%M}"
-            value = f"`{sid}` — {label}"
+            parsed.append((b, e, s))
         except Exception:
             log.warning("slot list: parse failed for slot=%r", s)
-            label = f"{s.get('begin_at')} 〜 {s.get('end_at')}"
-            value = f"`{sid}` — (parse 失敗) {label}"
-        embed.add_field(name=f"id `{sid}`", value=label, inline=False)
-        if sid is not None:
-            options.append(discord.SelectOption(label=label[:100], value=str(sid)))
-    if len(slots) > 25:
-        embed.set_footer(text=f"... 他 {len(slots) - 25} 件 (Select には載っていません)")
-    return embed, options
+            continue
+    parsed.sort(key=lambda x: x[0])
+
+    groups: list[list[dict]] = []
+    current: list[dict] = []
+    last_end: datetime | None = None
+    for b, e, s in parsed:
+        if current and last_end is not None and b == last_end:
+            current.append(s)
+        else:
+            if current:
+                groups.append(current)
+            current = [s]
+        last_end = e
+    if current:
+        groups.append(current)
+    return groups
+
+
+def _build_list_embed(slots: list[dict]) -> tuple[discord.Embed, list[discord.SelectOption], dict[str, list[int]]]:
+    """slot 一覧 embed + cancel Select 用 options + group_key→slot_ids のマップ を作る。
+
+    Select の value は 100 字制限があるので id 列をそのまま入れず group key (g0, g1, ...) を使う。
+    """
+    groups = _group_consecutive_slots(slots)
+    embed = discord.Embed(
+        title=f"📅 自分の slot ({len(slots)} 件 / {len(groups)} ブロック)",
+        color=0x00BABC,
+    )
+    options: list[discord.SelectOption] = []
+    group_map: dict[str, list[int]] = {}
+
+    for i, grp in enumerate(groups[:25]):
+        first = grp[0]
+        last = grp[-1]
+        try:
+            b = datetime.fromisoformat(first["begin_at"].replace("Z", "+00:00"))
+            e = datetime.fromisoformat(last["end_at"].replace("Z", "+00:00"))
+            label = f"{_jst(b):%m/%d (%a) %H:%M}〜{_jst(e):%H:%M}"
+        except Exception:
+            label = f"{first.get('begin_at')} 〜 {last.get('end_at')}"
+
+        ids = [int(s["id"]) for s in grp if s.get("id") is not None]
+        if not ids:
+            continue
+        if len(ids) == 1:
+            id_display = f"`{ids[0]}`"
+        else:
+            id_display = f"`{ids[0]}` 〜 `{ids[-1]}` ({len(ids)} 個)"
+
+        embed.add_field(name=id_display, value=label, inline=False)
+        key = f"g{i}"
+        group_map[key] = ids
+        options.append(discord.SelectOption(label=label[:100], value=key))
+
+    if len(groups) > 25:
+        embed.set_footer(text=f"... 他 {len(groups) - 25} ブロック (Select には載っていません)")
+    return embed, options, group_map
 
 
 class SlotCancelView(discord.ui.View):
-    def __init__(self, bot: commands.Bot, options: list[discord.SelectOption]):
+    def __init__(
+        self,
+        bot: commands.Bot,
+        options: list[discord.SelectOption],
+        group_map: dict[str, list[int]],
+    ):
         super().__init__(timeout=300)
-        self.add_item(SlotCancelSelect(bot, options))
+        self.add_item(SlotCancelSelect(bot, options, group_map))
 
 
 class SlotCancelSelect(discord.ui.Select):
-    def __init__(self, bot: commands.Bot, options: list[discord.SelectOption]):
+    def __init__(
+        self,
+        bot: commands.Bot,
+        options: list[discord.SelectOption],
+        group_map: dict[str, list[int]],
+    ):
         self.bot = bot
+        self.group_map = group_map
         super().__init__(
-            placeholder="キャンセルする slot を選ぶ…",
+            placeholder="キャンセルするブロックを選ぶ…",
             min_values=1,
             max_values=1,
             options=options,
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        slot_id_str = self.values[0]
-        try:
-            slot_id = int(slot_id_str)
-        except ValueError:
-            await interaction.response.send_message("❌ 不正な slot id", ephemeral=True)
+        key = self.values[0]
+        slot_ids = self.group_map.get(key) or []
+        if not slot_ids:
+            await interaction.response.send_message("❌ 対象 slot が見つかりません", ephemeral=True)
             return
         try:
             _, token = await get_valid_user_token(
@@ -162,15 +216,27 @@ class SlotCancelSelect(discord.ui.Select):
                 "先に `/link` で 42 アカウントを紐付けてください。", ephemeral=True
             )
             return
-        try:
-            await self.bot.client.delete_slot(token, slot_id)
-        except IntraError as e:
-            log.error("slot list-cancel: delete_slot(id=%s) failed: %s", slot_id, e)
-            await interaction.response.send_message(f"❌ 削除失敗: {e}", ephemeral=True)
+
+        deleted: list[int] = []
+        failed: list[tuple[int, IntraError]] = []
+        for sid in slot_ids:
+            try:
+                await self.bot.client.delete_slot(token, sid)
+                deleted.append(sid)
+            except IntraError as e:
+                log.error("slot list-cancel: delete_slot(id=%s) failed: %s", sid, e)
+                failed.append((sid, e))
+
+        if not deleted:
+            err = failed[0][1] if failed else "unknown"
+            await interaction.response.send_message(
+                f"❌ 全件削除失敗: {err}", ephemeral=True
+            )
             return
-        await interaction.response.send_message(
-            f"🗑 slot `{slot_id}` をキャンセルしました。", ephemeral=True
-        )
+        msg = f"🗑 slot を {len(deleted)} 個キャンセルしました。"
+        if failed:
+            msg += f"\n⚠️ うち {len(failed)} 個は削除に失敗 (id: {', '.join(str(i) for i, _ in failed)})"
+        await interaction.response.send_message(msg, ephemeral=True)
 
 
 JST = timezone(timedelta(hours=9))
