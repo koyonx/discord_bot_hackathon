@@ -133,7 +133,7 @@ class IntraClient:
                     msg = body.get("error") or body.get("message") or "request failed"
                     if isinstance(body, dict) and body.get("errors"):
                         msg = f"{msg} — {body['errors']}"
-                    raise IntraError(resp.status, msg, body)
+                    raise IntraError(resp.status, _truncate(msg), body)
                 return body
         raise IntraError(429, "rate limited after retries")
 
@@ -152,7 +152,7 @@ class IntraClient:
                 body = {"raw": text}
             if resp.status >= 400:
                 msg = (body.get("message") or body.get("error") or text) if isinstance(body, dict) else text
-                raise IntraError(resp.status, msg, body)
+                raise IntraError(resp.status, _truncate(msg), body)
             return body
 
     async def _paginate(self, path: str, *, params: dict | None = None, max_pages: int = 20) -> list[dict]:
@@ -399,10 +399,11 @@ class IntraClient:
             return rows[0]
         return None
 
-    async def retry_project(self, user_token: str, projects_user_id: int) -> dict:
+    async def retry_project(self, user_token: str, project_id: int) -> dict:
+        """failed の project をリトライ (project-scoped endpoint)。"""
         return await self._request(
             "POST",
-            f"/v2/projects_users/{projects_user_id}/retry",
+            f"/v2/projects/{project_id}/retry",
             token=user_token,
         )
 
@@ -452,3 +453,11 @@ class IntraClient:
 def _now_iso() -> str:
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def _truncate(s: Any, n: int = 300) -> str:
+    """API エラーメッセージが HTML / 巨大文字列のときに Discord (2000 字) に収まるよう短縮。"""
+    if not isinstance(s, str):
+        s = str(s)
+    s = s.strip()
+    return s if len(s) <= n else s[:n] + "..."

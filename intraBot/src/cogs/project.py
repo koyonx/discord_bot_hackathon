@@ -46,23 +46,9 @@ class ProjectCog(commands.GroupCog, name="project", description="自分の proje
         proj_name = proj.get("name", project)
 
         try:
-            pu = await self.bot.client.find_user_project(
-                user.intra_user_id, proj_id, user_token=token
-            )
+            await self.bot.client.retry_project(token, proj_id)
         except IntraError as e:
-            log.error("project retry: lookup failed: %s", e)
-            await interaction.followup.send(f"❌ 検索失敗: {e}", ephemeral=True)
-            return
-        if not pu:
-            await interaction.followup.send(
-                f"❌ `{proj_name}` には登録されていません。", ephemeral=True
-            )
-            return
-
-        try:
-            await self.bot.client.retry_project(token, int(pu["id"]))
-        except IntraError as e:
-            log.error("project retry: failed: %s", e)
+            log.error("project retry: project_id=%s failed: %s", proj_id, e)
             await interaction.followup.send(f"❌ リトライ失敗: {e}", ephemeral=True)
             return
         await interaction.followup.send(
