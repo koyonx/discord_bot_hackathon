@@ -20,47 +20,6 @@ class ProjectCog(commands.GroupCog, name="project", description="自分の proje
         self.bot = bot
         super().__init__()
 
-    # ===== /project retry =====
-
-    @app_commands.command(name="retry", description="failed の project をリトライ")
-    @app_commands.describe(project="project の slug または name")
-    async def retry(self, interaction: discord.Interaction, project: str) -> None:
-        await interaction.response.defer(ephemeral=True, thinking=True)
-        try:
-            user, token = await get_valid_user_token(
-                self.bot.store, self.bot.client, str(interaction.user.id)
-            )
-        except NotLinkedError:
-            await interaction.followup.send(
-                "先に `/link` で 42 アカウントを紐付けてください。", ephemeral=True
-            )
-            return
-
-        proj = await self._resolve_project(project)
-        if not proj:
-            await interaction.followup.send(
-                f"❌ project `{project}` が見つかりません。", ephemeral=True
-            )
-            return
-        proj_id = int(proj["id"])
-        proj_name = proj.get("name", project)
-
-        try:
-            await self.bot.client.retry_project(token, proj_id)
-        except IntraError as e:
-            log.error("project retry: project_id=%s failed: %s", proj_id, e)
-            await interaction.followup.send(f"❌ リトライ失敗: {e}", ephemeral=True)
-            return
-        await interaction.followup.send(
-            f"✅ `{proj_name}` をリトライしました。", ephemeral=True
-        )
-
-    @retry.autocomplete("project")
-    async def _retry_ac(
-        self, interaction: discord.Interaction, current: str
-    ) -> list[Choice[str]]:
-        return self._project_autocomplete(current)
-
     # ===== /project giveup =====
 
     @app_commands.command(name="giveup", description="進行中の project を give up")

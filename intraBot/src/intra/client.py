@@ -399,14 +399,6 @@ class IntraClient:
             return rows[0]
         return None
 
-    async def retry_project(self, user_token: str, project_id: int) -> dict:
-        """failed の project をリトライ (project-scoped endpoint)。"""
-        return await self._request(
-            "POST",
-            f"/v2/projects/{project_id}/retry",
-            token=user_token,
-        )
-
     async def giveup_project(self, user_token: str, projects_user_id: int) -> None:
         """進行中 project を give up (DELETE /v2/projects_users/:id)."""
         await self._request(
