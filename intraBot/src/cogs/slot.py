@@ -45,7 +45,9 @@ class SlotCog(commands.GroupCog, name="slot"):
         end = begin + timedelta(minutes=duration_min)
 
         try:
-            slot = await self.bot.client.create_slot(token, _to_iso(begin), _to_iso(end))
+            slot = await self.bot.client.create_slot(
+                token, user.intra_user_id, _to_iso(begin), _to_iso(end)
+            )
         except IntraError as e:
             log.error("slot add: create_slot failed (%s〜%s): %s", _to_iso(begin), _to_iso(end), e)
             await interaction.followup.send(f"❌ slot 作成失敗: {e}", ephemeral=True)

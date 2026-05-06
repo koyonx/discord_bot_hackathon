@@ -370,8 +370,26 @@ class IntraClient:
     async def list_user_slots(self, user_token: str) -> list[dict]:
         return await self._request("GET", "/v2/me/slots", token=user_token)
 
-    async def create_slot(self, user_token: str, begin_at_iso: str, end_at_iso: str) -> dict:
-        body = {"slot": {"begin_at": begin_at_iso, "end_at": end_at_iso}}
+    async def create_slot(
+        self,
+        user_token: str,
+        user_id: int,
+        begin_at_iso: str,
+        end_at_iso: str,
+    ) -> dict:
+        """slot を作成。
+
+        42 API doc によれば body に `user_ids` (array) を付け、その値は
+        OAuth token の owner と一致させる必要がある。15 分粒度に丸められ、
+        duration が 15 分超なら複数の slot に分割される。
+        """
+        body = {
+            "slot": {
+                "user_ids": [user_id],
+                "begin_at": begin_at_iso,
+                "end_at": end_at_iso,
+            }
+        }
         return await self._request("POST", "/v2/slots", token=user_token, json=body)
 
     async def delete_slot(self, user_token: str, slot_id: int) -> None:
