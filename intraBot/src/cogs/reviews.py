@@ -91,10 +91,11 @@ class ReviewsCog(commands.GroupCog, name="reviews", description="自分のレビ
             return
 
         # 空き slot 取得 → フィルタ (未来 / 未予約 / 自分以外)
+        # /v2/projects/:id/slots は staff-only で 403。team 経由で取る。
         try:
-            slots = await self.bot.client.get_project_slots(proj_id)
+            slots = await self.bot.client.get_team_slots(token, int(team_id))
         except IntraError as e:
-            log.error("reviews book: get_project_slots failed: %s", e)
+            log.error("reviews book: get_team_slots failed: %s", e)
             await interaction.followup.send(f"❌ slot 取得失敗: {e}", ephemeral=True)
             return
 

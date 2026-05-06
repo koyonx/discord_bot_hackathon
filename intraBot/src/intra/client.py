@@ -410,10 +410,33 @@ class IntraClient:
     # ===== reviews (scale_teams) =====
 
     async def get_project_slots(self, project_id: int) -> list[dict]:
-        """project の slot 一覧 (空き / 予約済の両方)."""
+        """project の slot 一覧 (app token)。staff scope が必要なケースあり。"""
         return await self._paginate(
             f"/v2/projects/{project_id}/slots", max_pages=10
         )
+
+    async def get_team_slots(
+        self, user_token: str, team_id: int, *, max_pages: int = 10
+    ) -> list[dict]:
+        """自分の team が予約できる slot 一覧 (本人 OAuth)。
+
+        `/v2/projects/:id/slots` は student scope では 403 を返すので、
+        team 経由 `/v2/teams/:team_id/slots` を使う。
+        """
+        out: list[dict] = []
+        for page in range(1, max_pages + 1):
+            rows = await self._request(
+                "GET",
+                f"/v2/teams/{team_id}/slots",
+                token=user_token,
+                params={"page[size]": 100, "page[number]": page},
+            )
+            if not isinstance(rows, list) or not rows:
+                break
+            out.extend(rows)
+            if len(rows) < 100:
+                break
+        return out
 
     async def get_project_full(self, project_id: int) -> dict:
         """project の詳細 (project_sessions など含む)."""
