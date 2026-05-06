@@ -17,10 +17,6 @@
 - `/events show <id>` … イベント詳細表示
 - `/events register <id>` / `/events leave <id>` … 参加登録 / 取消 (本人 OAuth)
 - イベントリマインダー … 開始 1 時間前に登録者へ DM (5 分間隔 polling)
-- `/project giveup <project>` … 進行中 project を give up (確認ボタン付き)
-- `/reviews list` … 自分の予約済レビュー一覧
-- `/reviews cancel <id>` … レビュー予約をキャンセル
-  - 注: 新規予約 (`book`) は API endpoint が student OAuth では塞がれているため intra UI で行う
 - レビュー通知 … 自分が evaluator/evaluated になると DM が届く (60s ポーリング)
 - 新メンバー welcome … サーバー参加時に DM で `/link` を案内
 

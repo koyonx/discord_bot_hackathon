@@ -377,42 +377,6 @@ class IntraClient:
     async def delete_slot(self, user_token: str, slot_id: int) -> None:
         await self._request("DELETE", f"/v2/slots/{slot_id}", token=user_token)
 
-    # ===== projects_user retry / give up =====
-
-    async def find_user_project(
-        self, user_id: int, project_id: int, *, user_token: str | None = None
-    ) -> dict | None:
-        """user の projects_user を project_id で検索。"""
-        params = {"filter[project_id]": project_id, "page[size]": 5}
-        if user_token:
-            rows = await self._request(
-                "GET",
-                f"/v2/users/{user_id}/projects_users",
-                token=user_token,
-                params=params,
-            )
-        else:
-            rows = await self._get(
-                f"/v2/users/{user_id}/projects_users", params=params
-            )
-        if isinstance(rows, list) and rows:
-            return rows[0]
-        return None
-
-    async def giveup_project(self, user_token: str, projects_user_id: int) -> None:
-        """進行中 project を give up (DELETE /v2/projects_users/:id)."""
-        await self._request(
-            "DELETE",
-            f"/v2/projects_users/{projects_user_id}",
-            token=user_token,
-        )
-
-    # ===== reviews (scale_teams) =====
-
-    async def cancel_scale_team(self, user_token: str, scale_team_id: int) -> None:
-        await self._request(
-            "DELETE", f"/v2/scale_teams/{scale_team_id}", token=user_token
-        )
 
 
 def _now_iso() -> str:
