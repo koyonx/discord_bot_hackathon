@@ -37,6 +37,8 @@ COG_MODULES = [
     "cogs.follow",
     "cogs.find_evaluator",
     "cogs.events",
+    "cogs.project",
+    "cogs.reviews",
 ]
 
 

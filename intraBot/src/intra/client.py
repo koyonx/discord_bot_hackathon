@@ -377,6 +377,77 @@ class IntraClient:
     async def delete_slot(self, user_token: str, slot_id: int) -> None:
         await self._request("DELETE", f"/v2/slots/{slot_id}", token=user_token)
 
+    # ===== projects_user retry / give up =====
+
+    async def find_user_project(
+        self, user_id: int, project_id: int, *, user_token: str | None = None
+    ) -> dict | None:
+        """user の projects_user を project_id で検索。"""
+        params = {"filter[project_id]": project_id, "page[size]": 5}
+        if user_token:
+            rows = await self._request(
+                "GET",
+                f"/v2/users/{user_id}/projects_users",
+                token=user_token,
+                params=params,
+            )
+        else:
+            rows = await self._get(
+                f"/v2/users/{user_id}/projects_users", params=params
+            )
+        if isinstance(rows, list) and rows:
+            return rows[0]
+        return None
+
+    async def retry_project(self, user_token: str, projects_user_id: int) -> dict:
+        return await self._request(
+            "POST",
+            f"/v2/projects_users/{projects_user_id}/retry",
+            token=user_token,
+        )
+
+    async def giveup_project(self, user_token: str, projects_user_id: int) -> None:
+        """進行中 project を give up (DELETE /v2/projects_users/:id)."""
+        await self._request(
+            "DELETE",
+            f"/v2/projects_users/{projects_user_id}",
+            token=user_token,
+        )
+
+    # ===== reviews (scale_teams) =====
+
+    async def get_project_slots(self, project_id: int) -> list[dict]:
+        """project の slot 一覧 (空き / 予約済の両方)."""
+        return await self._paginate(
+            f"/v2/projects/{project_id}/slots", max_pages=10
+        )
+
+    async def get_project_full(self, project_id: int) -> dict:
+        """project の詳細 (scales 含む)."""
+        return await self._get(f"/v2/projects/{project_id}")
+
+    async def book_scale_team(
+        self,
+        user_token: str,
+        *,
+        team_id: int,
+        scale_id: int,
+        begin_at: str,
+    ) -> dict:
+        body = {
+            "scale_team": {
+                "team_id": team_id,
+                "scale_id": scale_id,
+                "begin_at": begin_at,
+            }
+        }
+        return await self._request("POST", "/v2/scale_teams", token=user_token, json=body)
+
+    async def cancel_scale_team(self, user_token: str, scale_team_id: int) -> None:
+        await self._request(
+            "DELETE", f"/v2/scale_teams/{scale_team_id}", token=user_token
+        )
+
 
 def _now_iso() -> str:
     from datetime import datetime, timezone

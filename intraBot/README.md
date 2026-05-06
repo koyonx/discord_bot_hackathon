@@ -17,6 +17,10 @@
 - `/events show <id>` … イベント詳細表示
 - `/events register <id>` / `/events leave <id>` … 参加登録 / 取消 (本人 OAuth)
 - イベントリマインダー … 開始 1 時間前に登録者へ DM (5 分間隔 polling)
+- `/project retry <project>` / `/project giveup <project>` … project のリトライ / give up (give up は確認ボタンあり)
+- `/reviews book <project>` … 進行中 project の空き slot 一覧 → Select で 1 つ選んで予約 (scale_team 作成)
+- `/reviews list` … 自分の予約済レビュー一覧
+- `/reviews cancel <id>` … レビュー予約をキャンセル
 - レビュー通知 … 自分が evaluator/evaluated になると DM が届く (60s ポーリング)
 - 新メンバー welcome … サーバー参加時に DM で `/link` を案内
 
