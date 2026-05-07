@@ -24,19 +24,66 @@
         .play-btn {
             background: var(--accent); color: white; border: none;
             padding: 0.3rem 0.85rem; border-radius: 999px; cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.85rem; white-space: nowrap;
         }
         .play-btn:hover { background: #169c45; color: white; }
         .play-btn.open { background: #555; }
         .player-row td { background: #fafcfa; padding: 1rem; border-bottom: 1px solid var(--border); }
         .player-host { max-width: 640px; }
         .player-host audio { width: 100%; }
-        .player-host video { max-width: 100%; }
+        .player-host video { max-width: 100%; width: 100%; }
         .player-host iframe { border: 0; max-width: 100%; }
+        .player-host iframe.yt-embed {
+            width: 100%; max-width: 560px;
+            aspect-ratio: 16 / 9; height: auto;
+        }
         .source-line { font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem; word-break: break-all; }
         .cant-embed { font-size: 0.9rem; color: #555; }
         .cant-embed a { font-weight: 600; }
         .song-title { font-weight: 500; }
+
+        @media (max-width: 640px) {
+            body { margin: 1rem auto; padding: 0 0.6rem; }
+            h1 { font-size: 1.35rem; }
+            .meta { font-size: 0.85rem; }
+            table, tbody { display: block; }
+            table thead { display: none; }
+            tr.song-row {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                column-gap: 0.6rem;
+                row-gap: 0.25rem;
+                align-items: center;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 0.6rem 0.85rem;
+                margin: 0.5rem 0;
+                background: white;
+            }
+            tr.song-row:hover td { background: transparent; }
+            tr.song-row td { border: none; padding: 0; }
+            tr.song-row td.cell-title  { grid-column: 1; grid-row: 1; font-size: 1rem; font-weight: 600; }
+            tr.song-row td.cell-play   { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+            tr.song-row td.cell-artist { grid-column: 1; grid-row: 2; color: var(--muted); font-size: 0.85rem; }
+            tr.song-row td.cell-who    { grid-column: 1; grid-row: 3; font-size: 0.75rem; white-space: normal; }
+            tr.song-row td.cell-when   { grid-column: 1; grid-row: 4; font-size: 0.72rem; white-space: normal; }
+            tr.song-row td.cell-delete { grid-column: 2; grid-row: 3 / span 2; align-self: end; }
+            tr.song-row td.cell-who::before    { content: "追加: "; opacity: 0.7; }
+            tr.song-row td.cell-when::before   { content: "🕒 "; }
+            tr.song-row td.cell-artist::before { content: "by "; opacity: 0.7; }
+            tr.song-row td.cell-delete form { margin: 0; }
+
+            tr.player-row { display: block; margin: -0.5rem 0 0.75rem; }
+            tr.player-row[hidden] { display: none; }
+            tr.player-row td {
+                display: block; padding: 0.85rem;
+                border: 1px solid var(--border); border-top: none;
+                border-radius: 0 0 8px 8px;
+                background: #fafcfa;
+            }
+            .play-btn { padding: 0.5rem 1rem; font-size: 0.9rem; }
+            button[type="submit"] { padding: 0.4rem 0.75rem; }
+        }
     </style>
 </head>
 <body>
@@ -58,12 +105,12 @@
         <tbody>
             {% for song in songs %}
             <tr class="song-row" data-url="{{ song.url }}" data-row-id="{{ song.id }}">
-                <td class="song-title">{{ song.title }}</td>
-                <td>{{ song.artist }}</td>
-                <td><button type="button" class="play-btn">▶ 再生</button></td>
-                <td class="who">{{ song.added_by_display_name }}</td>
-                <td class="when">{{ song.created_at }}</td>
-                <td>
+                <td class="cell-title song-title">{{ song.title }}</td>
+                <td class="cell-artist">{{ song.artist }}</td>
+                <td class="cell-play"><button type="button" class="play-btn">▶ 再生</button></td>
+                <td class="cell-who who">{{ song.added_by_display_name }}</td>
+                <td class="cell-when when">{{ song.created_at }}</td>
+                <td class="cell-delete">
                     <form action="/delete/{{ song.id }}" method="post" onsubmit="return confirm('「{{ song.title }}」を削除しますか?');">
                         <button type="submit">削除</button>
                     </form>
@@ -165,7 +212,7 @@
         const yt = parseYouTube(u);
         if (yt) {
             return makeIframe(`https://www.youtube.com/embed/${encodeURIComponent(yt)}`, {
-                width: 560, height: 315,
+                className: 'yt-embed',
                 allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
                 allowFullscreen: true,
             });
