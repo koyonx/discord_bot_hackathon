@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: build up down logs lint test
+.PHONY: build up down logs lint test web-shell bot-shell
 
 build:
 	docker compose build
@@ -16,7 +16,13 @@ logs:
 
 lint:
 	pip install --quiet ruff
-	ruff check src || true
+	ruff check bot/src web/src || true
 
 test:
 	@echo "no tests configured"
+
+bot-shell:
+	docker compose run --rm bot /bin/bash
+
+web-shell:
+	docker compose run --rm web /bin/bash
