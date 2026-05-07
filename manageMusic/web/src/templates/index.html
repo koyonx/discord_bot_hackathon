@@ -13,7 +13,7 @@
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 0.65rem 0.5rem; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
         th { background: #fafafa; font-size: 0.78rem; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
-        tr:hover td { background: #f7fbf9; }
+        tr.song-row:hover td { background: #f7fbf9; }
         a { color: var(--accent); text-decoration: none; word-break: break-all; }
         a:hover { text-decoration: underline; }
         .who, .when { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
@@ -21,6 +21,22 @@
         button { background: transparent; color: var(--danger); border: 1px solid #e6b6b0; padding: 0.3rem 0.7rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
         button:hover { background: var(--danger); color: white; }
         code { background: #f3f3f3; padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.9em; }
+        .play-btn {
+            background: var(--accent); color: white; border: none;
+            padding: 0.3rem 0.85rem; border-radius: 999px; cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .play-btn:hover { background: #169c45; color: white; }
+        .play-btn.open { background: #555; }
+        .player-row td { background: #fafcfa; padding: 1rem; border-bottom: 1px solid var(--border); }
+        .player-host { max-width: 640px; }
+        .player-host audio { width: 100%; }
+        .player-host video { max-width: 100%; }
+        .player-host iframe { border: 0; max-width: 100%; }
+        .source-line { font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem; word-break: break-all; }
+        .cant-embed { font-size: 0.9rem; color: #555; }
+        .cant-embed a { font-weight: 600; }
+        .song-title { font-weight: 500; }
     </style>
 </head>
 <body>
@@ -33,7 +49,7 @@
             <tr>
                 <th>曲名</th>
                 <th>アーティスト</th>
-                <th>URL</th>
+                <th></th>
                 <th>追加者</th>
                 <th>追加日時 (UTC)</th>
                 <th></th>
@@ -41,10 +57,10 @@
         </thead>
         <tbody>
             {% for song in songs %}
-            <tr>
-                <td>{{ song.title }}</td>
+            <tr class="song-row" data-url="{{ song.url }}" data-row-id="{{ song.id }}">
+                <td class="song-title">{{ song.title }}</td>
                 <td>{{ song.artist }}</td>
-                <td><a href="{{ song.url }}" target="_blank" rel="noopener noreferrer">{{ song.url }}</a></td>
+                <td><button type="button" class="play-btn">▶ 再生</button></td>
                 <td class="who">{{ song.added_by_display_name }}</td>
                 <td class="when">{{ song.created_at }}</td>
                 <td>
@@ -53,14 +69,167 @@
                     </form>
                 </td>
             </tr>
+            <tr class="player-row" data-for="{{ song.id }}" hidden>
+                <td colspan="6">
+                    <div class="player-host"></div>
+                    <div class="source-line"></div>
+                </td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>
     {% else %}
     <div class="empty">
         まだ曲が登録されていません。<br>
-        Discord で <code>/add title:&lt;曲名&gt; artist:&lt;アーティスト&gt; url:&lt;URL&gt;</code> を実行してみましょう。
+        Discord で <code>/music add title:&lt;曲名&gt; artist:&lt;アーティスト&gt; url:&lt;URL&gt; or file:&lt;添付&gt;</code> を実行してみましょう。
     </div>
     {% endif %}
+
+<script>
+(() => {
+    const AUDIO_EXT = ['mp3', 'm4a', 'wav', 'ogg', 'oga', 'flac', 'aac', 'opus'];
+    const VIDEO_EXT = ['mp4', 'webm', 'mov'];
+
+    function extOf(path) {
+        const clean = path.split('?')[0].split('#')[0];
+        const idx = clean.lastIndexOf('.');
+        return idx >= 0 ? clean.slice(idx + 1).toLowerCase() : '';
+    }
+
+    function parseYouTube(u) {
+        const host = u.hostname.replace(/^www\./, '');
+        if (host === 'youtu.be') {
+            const id = u.pathname.replace(/^\/+/, '').split('/')[0];
+            return id || null;
+        }
+        if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com') {
+            if (u.pathname === '/watch') return u.searchParams.get('v');
+            const m = u.pathname.match(/^\/(embed|shorts|live|v)\/([^/]+)/);
+            if (m) return m[2];
+        }
+        return null;
+    }
+
+    function parseSpotify(u) {
+        if (u.hostname !== 'open.spotify.com') return null;
+        const m = u.pathname.match(/^\/(track|album|playlist|episode|show|artist)\/([A-Za-z0-9]+)/);
+        return m ? { type: m[1], id: m[2] } : null;
+    }
+
+    function isSoundCloud(u) {
+        return u.hostname === 'soundcloud.com' || u.hostname === 'www.soundcloud.com';
+    }
+
+    function makeAudio(src) {
+        const el = document.createElement('audio');
+        el.controls = true;
+        el.preload = 'metadata';
+        el.src = src;
+        return el;
+    }
+    function makeVideo(src) {
+        const el = document.createElement('video');
+        el.controls = true;
+        el.preload = 'metadata';
+        el.src = src;
+        return el;
+    }
+    function makeIframe(src, attrs) {
+        const f = document.createElement('iframe');
+        f.src = src;
+        Object.assign(f, attrs);
+        return f;
+    }
+    function makeFallback(url) {
+        const div = document.createElement('div');
+        div.className = 'cant-embed';
+        div.append('このリンクは埋め込み再生に対応していません。');
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = 'URLを開いて再生してください';
+        div.append(' ', a);
+        return div;
+    }
+
+    function renderPlayer(rawUrl) {
+        if (rawUrl.startsWith('/files/')) {
+            const ext = extOf(rawUrl);
+            return VIDEO_EXT.includes(ext) ? makeVideo(rawUrl) : makeAudio(rawUrl);
+        }
+
+        let u;
+        try { u = new URL(rawUrl); } catch (_) { return makeFallback(rawUrl); }
+
+        const yt = parseYouTube(u);
+        if (yt) {
+            return makeIframe(`https://www.youtube.com/embed/${encodeURIComponent(yt)}`, {
+                width: 560, height: 315,
+                allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
+                allowFullscreen: true,
+            });
+        }
+
+        const sp = parseSpotify(u);
+        if (sp) {
+            return makeIframe(`https://open.spotify.com/embed/${sp.type}/${encodeURIComponent(sp.id)}`, {
+                width: '100%', height: 152,
+                allow: 'encrypted-media',
+                loading: 'lazy',
+            });
+        }
+
+        if (isSoundCloud(u)) {
+            return makeIframe(
+                `https://w.soundcloud.com/player/?url=${encodeURIComponent(rawUrl)}&auto_play=false`,
+                { width: '100%', height: 166, allow: 'autoplay', scrolling: 'no' }
+            );
+        }
+
+        const ext = extOf(u.pathname);
+        if (AUDIO_EXT.includes(ext)) return makeAudio(rawUrl);
+        if (VIDEO_EXT.includes(ext)) return makeVideo(rawUrl);
+
+        return makeFallback(rawUrl);
+    }
+
+    function buildSourceLine(rawUrl) {
+        const wrap = document.createElement('span');
+        wrap.append('ソース: ');
+        const a = document.createElement('a');
+        a.href = rawUrl;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = rawUrl;
+        wrap.append(a);
+        return wrap;
+    }
+
+    document.querySelectorAll('tr.song-row').forEach((row) => {
+        const id = row.dataset.rowId;
+        const url = row.dataset.url;
+        const playerRow = document.querySelector(`tr.player-row[data-for="${id}"]`);
+        if (!playerRow) return;
+        const host = playerRow.querySelector('.player-host');
+        const sourceLine = playerRow.querySelector('.source-line');
+        const btn = row.querySelector('.play-btn');
+
+        btn.addEventListener('click', () => {
+            const opening = playerRow.hidden;
+            if (opening) {
+                host.replaceChildren(renderPlayer(url));
+                sourceLine.replaceChildren(buildSourceLine(url));
+            } else {
+                host.replaceChildren();
+                sourceLine.replaceChildren();
+            }
+            playerRow.hidden = !opening;
+            btn.classList.toggle('open', opening);
+            btn.textContent = opening ? '■ 閉じる' : '▶ 再生';
+        });
+    });
+})();
+</script>
 </body>
 </html>
